@@ -1,0 +1,29 @@
+.cursor/
+.env
+.env.local
+.env.*
+docs/
+memory-bank/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+*.pyc
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+.pnpm-debug.log*
+
+# Build / output
+dist/
+build/
+*.local
+
+# OS
+.DS_Store
+AGENTS.md
