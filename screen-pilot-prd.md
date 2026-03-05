@@ -1,12 +1,10 @@
-<img src="https://r2cdn.perplexity.ai/pplx-full-logo-primary-dark%402x.png" style="height:64px;margin-right:32px"/>
-
 # [https://geminiliveagentchallenge.devpost.com/](https://geminiliveagentchallenge.devpost.com/) (so i am participating in this hackthon i have proivded you a thread the project i selected for making, you have the browse whole web and latest inforamtion avialable first breakdown the problem statement and rules and regaulations juding criteria then prepare in detail PRD define scope so i surely standout and major chance of winning hacktehon break down each task into smaller subtasks we will be using google sdk as they told to follow and react for frontend and fastapi for backend other you are free to chose whats best create me a day wise plan so i can complete it before deadline everything outline in the simplest language possible the deadline is 15 march everything i will need to complete this projec
 
 one thing : it willl be very helpul if you find the github repo which have already done this or some code we can copy and modify in our project code available anywhere in web list all references and detailed PRD plan
 
 You should build a focused UI Navigator agent called “ScreenPilot”: a browser copilot that looks at screenshots, understands the page, and fills a specific web form end‑to‑end using Gemini + Playwright, with a React frontend and FastAPI backend deployed on Google Cloud Run. Below is a breakdown of the hackathon requirements, a detailed PRD, architecture, day‑wise plan to finish before 15 March, and repos you can reuse.[^1][^2][^3]
 
-***
+---
 
 ## Hackathon track and problem
 
@@ -14,7 +12,7 @@ The Gemini Live Agent Challenge asks you to build next‑gen agents that go beyo
 
 Your chosen idea, ScreenPilot, fits this: it takes a user instruction like “Fill my weekly timesheet” or “Create a support ticket”, looks at the page screenshot, and then clicks, types and scrolls in the browser until the task is done. This shows exactly what the judges are looking for: visual understanding + executable actions + a live experience, not just Q\&A.[^6][^2][^1]
 
-***
+---
 
 ## Core rules and mandatory tech
 
@@ -26,7 +24,7 @@ Key “ALL projects MUST” requirements from Devpost and summaries:[^3][^4][^6]
 
 Other important constraints: submissions are online, open Feb 16 – mid‑March, and you must provide a public repo, deployment proof, and a demo video under 4 minutes. Your UI Navigator entry must clearly show it is driven by visual context (screenshots/screen recording), not just DOM selectors or APIs.[^8][^5][^6][^2][^4]
 
-***
+---
 
 ## Judging criteria (how to win)
 
@@ -38,7 +36,7 @@ Based on rules and community summaries, judging is roughly:[^6][^4]
 
 For UI Navigator specifically, they explicitly ask whether the agent shows **visual precision** (understanding screen context) versus blind clicking, and whether the interaction feels “live” and context‑aware rather than slow turn‑based. So your demo must highlight: “Here is the screenshot, here is what Gemini understood, here is the exact element it chose and why.”[^4][^2]
 
-***
+---
 
 ## Product concept: ScreenPilot
 
@@ -48,7 +46,7 @@ Example demo flow: “Fill my weekly timesheet on this internal tool for this we
 
 Instead of trying to automate the whole internet, you will support **one or two very tight flows** (e.g. a fixed demo timesheet app and/or a dummy support ticket form) so your demonstration is rock‑solid. This keeps scope realistic and lets you focus on visual accuracy, UX, and reliability, which judges care about.[^9][^1]
 
-***
+---
 
 ## PRD – in simple language
 
@@ -57,19 +55,17 @@ Instead of trying to automate the whole internet, you will support **one or two 
 - Help people avoid boring, repetitive browser tasks like filling the same dashboard forms every day.[^1][^9]
 - Let a user say what they want in plain language, and then watch the agent complete the online form automatically while explaining steps.[^6][^1]
 
-
 ### Primary users (for demo)
 
 - Knowledge workers who repeatedly fill the same internal tools (timesheets, CRM tickets, helpdesk forms).[^1]
 - For your hackathon demo, you only need a **single “persona”**: e.g. “SaaS support engineer who fills a weekly timesheet”.[^1]
-
 
 ### Main demo user story
 
 - As a user, I open ScreenPilot, select a task like “Fill weekly timesheet”, give simple parameters (week dates + hours), then click Run.[^1]
 - ScreenPilot opens the target web app in a browser, looks at screenshots, and automatically fills the correct fields, step by step, until the form is ready to submit.[^2][^1]
 
-***
+---
 
 ## Scope: what it will and will not do
 
@@ -80,14 +76,13 @@ Instead of trying to automate the whole internet, you will support **one or two 
 - Show a simple React UI: choose task, provide parameters, start run, and see a live log of each step with short explanations.[^1]
 - Use at least one Google Cloud service: deploy FastAPI + Playwright + Gemini logic to Cloud Run, and optionally log sessions to Firestore or Cloud Storage.[^4][^2]
 
-
 ### Out‑of‑scope (for hackathon version)
 
 - Handling arbitrary websites or complex CAPTCHAs: restrict to your demo app or one stable third‑party site.[^9][^1]
 - Multi‑user auth, teams, and role management: you can assume a single demo user/session.[^1]
 - Perfect error handling: you handle the “happy path” plus a few common errors (e.g. invalid JSON from Gemini, element not found → retry once or stop gracefully).[^9][^1]
 
-***
+---
 
 ## Success criteria (what “good” looks like)
 
@@ -95,7 +90,7 @@ Instead of trying to automate the whole internet, you will support **one or two 
 - Judges can clearly see that Gemini is reading the **visual UI** (screenshots) and not just using brittle DOM selectors; you can show overlays/coordinates or textual descriptions to prove this.[^10][^4][^2]
 - Repo, architecture diagram, and demo video make the technical story obvious and professional.[^8][^6][^4]
 
-***
+---
 
 ## Tech stack and architecture
 
@@ -124,7 +119,7 @@ You want React for frontend and FastAPI for backend, plus Google’s SDK and Pla
 - `playwright` for browser automation.[^7][^2]
 - `fastapi`, `uvicorn`, `pydantic` for API and data models.[^12]
 
-***
+---
 
 ## Agent behavior and data structures
 
@@ -162,7 +157,7 @@ You’ll instruct Gemini to output only this JSON (no extra text) by using `resp
 
 This loop directly matches the official “computer use” pattern from Google’s docs, where the model sees a screenshot and suggests UI actions, repeated until completion.[^7][^2]
 
-***
+---
 
 ## Detailed feature list
 
@@ -180,7 +175,7 @@ This loop directly matches the official “computer use” pattern from Google�
 - Session storage: basic persistence of runs (task, parameters, start/end times, outcome) and optionally logs \& screenshots in Firestore/Cloud Storage.[^4][^1]
 - Safety guardrail: before submitting forms or changing critical data, the agent pauses and asks the user to confirm via the UI.[^1]
 
-***
+---
 
 ## Day‑wise execution plan (from 5 March to 15 March)
 
@@ -192,13 +187,11 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 - Finalize demo flow: pick **one primary flow** (e.g. demo timesheet app you control) plus maybe one backup if time allows.[^1]
 - Create GCP project, enable Gemini API and Cloud Run, generate API key and set it locally (`GEMINI_API_KEY`).[^13][^2]
 
-
 ### Day 2 – Backend scaffolding and Gemini POC
 
 - Initialize FastAPI project with a basic `/health` endpoint; run via `uvicorn` locally.[^12]
 - Install Gemini and Playwright dependencies; run a **minimal Gemini text call** (no screenshots yet) from FastAPI to confirm credentials \& latency.[^13][^2]
 - Set up `.env` handling and secrets loading; never hardcode keys.[^2]
-
 
 ### Day 3 – Playwright + screenshot POC
 
@@ -206,13 +199,11 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 - Navigate to your demo timesheet page URL and capture a screenshot; verify locally in a `screenshots/` folder.[^9][^1]
 - Build a small Python function `take_screenshot_and_call_gemini()` that sends screenshot + simple instruction (“Describe what you see in one sentence”) and logs Gemini’s description.[^2][^1]
 
-
 ### Day 4 – Design JSON schema and action executor
 
 - Define the JSON schema for actions (Pydantic models) and write a function to execute one list of actions in Playwright (clicks, types, scrolls).[^9][^1]
 - Write and iterate on the Gemini prompt so that it **always** returns valid JSON matching your schema; add a retry mechanism if JSON parsing fails once.[^2][^1]
 - Hardcode a simple task (“Fill ‘Monday hours’ field with 8”) and verify the loop: screenshot → Gemini JSON → Playwright actions → screenshot.[^1]
-
 
 ### Day 5 – End‑to‑end task completion for one flow
 
@@ -220,13 +211,11 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 - Add basic logging structure: list of steps with action, Gemini reasoning summary, and success/failure.[^1]
 - Confirm locally that a full run (with one button click plus several fills) completes in a reasonable time and is stable.[^9]
 
-
 ### Day 6 – React frontend skeleton
 
 - Scaffold React + TypeScript app (Vite or CRA) with a single page layout.[^11]
 - Build UI elements: task dropdown, parameter fields, Run button, and log panel; wire them to local mock data first.[^1]
 - Integrate with FastAPI: call `/api/run-task` with fetch/Axios; start with simple “start + poll” pattern for run status.[^12]
-
 
 ### Day 7 – Live UX and screenshots
 
@@ -234,13 +223,11 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 - Implement streaming/polling of logs so the user sees each step in near real‑time (every 1–2 seconds is fine for “live” feel).[^6][^4]
 - Add optional display of final screenshot (or small thumbnails at each major step) in the UI to emphasize visual understanding to judges.[^10][^1]
 
-
 ### Day 8 – Persistence and Cloud Run deployment
 
 - Add minimal persistence: store each run (task, outcome, timestamps) in Firestore or store logs/screenshot paths in Cloud Storage.[^4][^2]
 - Write a Dockerfile for FastAPI + Playwright (install Chromium as in official computer‑use docs) and test container locally.[^7][^2]
 - Deploy to Cloud Run, configure environment variables, and ensure the React frontend can call the Cloud Run URL (fix CORS as needed).[^4][^2]
-
 
 ### Day 9 – Polish for judging criteria
 
@@ -248,13 +235,11 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 - Add a simple confirmation dialog before final submission actions (e.g. clicking “Submit timesheet”) to demonstrate safety.[^1]
 - Clean up logs so they are understandable to non‑technical judges: e.g. “Step 3: Gemini saw the label ‘Monday’ and filled 8 hours”.[^1]
 
-
 ### Day 10 – Documentation and architecture diagram
 
 - Write a strong README: problem, solution, features, tech stack, architecture diagram, how to run locally, how to deploy, and where Gemini + Cloud are used.[^6][^4]
 - Draw a simple architecture diagram (even in Excalidraw): User → React → FastAPI → Gemini API + Playwright → GCP (Cloud Run + Firestore/Storage).[^4][^1]
 - Add comments in key files and ensure code structure is clean and easy to scan.
-
 
 ### Day 11 – Demo video and submission assets (13–14 March)
 
@@ -264,7 +249,7 @@ Assuming today is 4 March night, here is a realistic schedule finishing core bui
 
 Use 15 March as buffer for bug‑fixing and final polish.
 
-***
+---
 
 ## Code you can reuse (GitHub and docs)
 
@@ -281,7 +266,7 @@ Here are repos and docs you can study and adapt (copy patterns, not blindly copy
 
 These references plus the plan in your attached PDF (which already covers UI Navigator rationale, basic PRD, SDK usage, and step‑by‑step build) give you end‑to‑end guidance.[^1]
 
-***
+---
 
 ## Submission assets you must prepare
 
@@ -348,4 +333,3 @@ If you follow this PRD, stick to one very polished flow, and keep the UX simple 
 [^25]: https://www.linkedin.com/posts/gogu-arjun_ai-webautomation-python-activity-7320451210224746496-ARpf
 
 [^26]: https://ai.google.dev/gemini-api/docs/tools
-
