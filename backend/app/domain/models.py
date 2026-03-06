@@ -5,15 +5,16 @@ Defines action types, run states, and step metadata. Uses Pydantic for
 validation and JSON serialization. No external SDK or framework imports.
 """
 
-from datetime import datetime
 from enum import Enum
+from datetime import datetime, timezone
 from typing import Any, Optional
+
 
 from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# Substep 1.2: ActionType enum
+#  ActionType enum
 # ---------------------------------------------------------------------------
 class ActionType(str, Enum):
     """
@@ -30,7 +31,7 @@ class ActionType(str, Enum):
 
 
 # ---------------------------------------------------------------------------
-# Substep 1.3: ActionTarget + Action models
+#  ActionTarget + Action models
 # ---------------------------------------------------------------------------
 class ActionTarget(BaseModel):
     """
@@ -67,7 +68,7 @@ class Action(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Substep 1.4: RunStatus enum + RunStep model
+#  RunStatus enum + RunStep model
 # ---------------------------------------------------------------------------
 class RunStatus(str, Enum):
     """
@@ -106,5 +107,5 @@ class Run(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     status: RunStatus = RunStatus.PENDING
     steps: list[RunStep] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
