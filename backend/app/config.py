@@ -26,15 +26,28 @@ class Settings(BaseModel):
     gemini_api_key: str
     gcp_project_id: Optional[str] = None
     gcp_region: Optional[str] = None
-    timesheet_url: str = "https://example.com"
+    timesheet_url: str
+    gemini_action_model_id: str
+    gemini_action_fallback_model_id: Optional[str] = None
 
     @classmethod
     def from_env(cls) -> "Settings":
+        port = os.environ.get("PORT", "8000")
+        default_timesheet_url = f"http://127.0.0.1:{port}/api/timesheet-demo"
+        # Prefer a stable, low-cost multimodal model for free-tier usage.
+        # The computer-use preview models often have free-tier quota set to 0.
+        default_action_model_id = "gemini-2.5-flash-lite"
         return cls(
             gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
             gcp_project_id=os.environ.get("GCP_PROJECT_ID"),
             gcp_region=os.environ.get("GCP_REGION"),
-            timesheet_url=os.environ.get("TIMESHEET_URL", "https://example.com"),
+            timesheet_url=os.environ.get("TIMESHEET_URL", default_timesheet_url),
+            gemini_action_model_id=os.environ.get(
+                "GEMINI_ACTION_MODEL_ID", default_action_model_id
+            ),
+            gemini_action_fallback_model_id=os.environ.get(
+                "GEMINI_ACTION_FALLBACK_MODEL_ID", "gemini-3-flash-preview"
+            ),
         )
 
 

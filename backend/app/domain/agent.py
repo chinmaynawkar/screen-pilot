@@ -92,7 +92,15 @@ def execute_timesheet_run(
     step_index = 0
 
     try:
-        adapters.browser.open_timesheet_page()
+        try:
+            adapters.browser.open_timesheet_page()
+        except Exception:
+            # If browser launch/navigation fails, mark run as failed.
+            # This prevents runs getting stuck in PENDING forever.
+            logger.exception("Browser open_timesheet_page failed (run_id=%s)", run.id)
+            run.status = RunStatus.FAILED
+            run.updated_at = _now_utc()
+            return adapters.run_repository.update_run(run)
 
         run.status = RunStatus.RUNNING
         run.updated_at = _now_utc()
