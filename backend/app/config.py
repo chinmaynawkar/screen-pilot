@@ -26,6 +26,7 @@ class Settings(BaseModel):
     gemini_api_key: str
     gcp_project_id: Optional[str] = None
     gcp_region: Optional[str] = None
+    timesheet_url: str = "https://example.com"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -33,6 +34,7 @@ class Settings(BaseModel):
             gemini_api_key=os.environ.get("GEMINI_API_KEY", ""),
             gcp_project_id=os.environ.get("GCP_PROJECT_ID"),
             gcp_region=os.environ.get("GCP_REGION"),
+            timesheet_url=os.environ.get("TIMESHEET_URL", "https://example.com"),
         )
 
 
