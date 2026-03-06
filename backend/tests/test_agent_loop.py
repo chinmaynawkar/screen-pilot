@@ -71,3 +71,19 @@ def test_execute_timesheet_run_succeeds_when_actions_then_empty() -> None:
     )
     assert out.status == RunStatus.SUCCEEDED
 
+
+def test_execute_timesheet_run_fails_if_browser_cannot_start() -> None:
+    class FailingBrowser(FakeBrowser):
+        def open_timesheet_page(self) -> None:
+            raise RuntimeError("browser launch failed")
+
+    run = Run(id="r2", task_type="fill_timesheet", parameters={})
+    adapters = AgentAdapters(
+        gemini=FakeGemini(),
+        browser=FailingBrowser(),
+        run_repository=FakeRepo(),
+        screenshot_store=FakeStore(),
+    )
+    out = execute_timesheet_run(run=run, goal="fill", parameters={}, adapters=adapters)
+    assert out.status == RunStatus.FAILED
+

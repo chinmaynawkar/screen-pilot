@@ -14,6 +14,9 @@ from typing import Any
 
 from google import genai
 from google.genai import types
+import time
+
+from google.genai.errors import ClientError, ServerError
 from pydantic import ValidationError
 
 from backend.app.config import get_settings
@@ -21,8 +24,8 @@ from backend.app.domain.models import Action
 from backend.app.domain.ports import IGeminiClient
 
 
-# Model chosen per docs/agent-loop.md reference.
-DEFAULT_ACTION_MODEL_ID = "gemini-2.5-computer-use-preview-10-2025"
+# Default model for planning actions (override via GEMINI_ACTION_MODEL_ID).
+DEFAULT_ACTION_MODEL_ID = "gemini-3-flash-preview"
 
 
 class GeminiParseError(Exception):
@@ -65,7 +68,8 @@ class GeminiClientImpl(IGeminiClient):
     def __init__(self, model_id: str = DEFAULT_ACTION_MODEL_ID) -> None:
         settings = get_settings()
         self._client = genai.Client(api_key=settings.gemini_api_key or None)
-        self._model_id = model_id
+        self._model_id = model_id or settings.gemini_action_model_id
+        self._fallback_model_id = settings.gemini_action_fallback_model_id
 
     def plan_actions(
         self,
@@ -76,19 +80,70 @@ class GeminiClientImpl(IGeminiClient):
         prompt = _build_actions_prompt(goal=goal, parameters=parameters)
         screenshot_part = types.Part.from_bytes(data=screenshot_bytes, mime_type="image/png")
 
-        try:
-            return self._plan_actions_once(prompt=prompt, screenshot_part=screenshot_part)
-        except GeminiParseError:
-            strict_prompt = (
-                prompt
-                + "\n\nIMPORTANT: Output MUST be valid JSON array only. If unsure, output []."
-            )
-            return self._plan_actions_once(prompt=strict_prompt, screenshot_part=screenshot_part)
+        strict_prompt = (
+            prompt
+            + "\n\nIMPORTANT: Output MUST be valid JSON array only. If unsure, output []."
+        )
 
-    def _plan_actions_once(self, prompt: str, screenshot_part: types.Part) -> list[Action]:
+        # Small retry loop for transient model errors (503) and rate limiting (429).
+        # Keep this conservative to avoid long request hangs.
+        attempts = 3
+        last_exc: Exception | None = None
+
+        for attempt in range(attempts):
+            try:
+                return self._plan_actions_once(
+                    model_id=self._model_id, prompt=prompt, screenshot_part=screenshot_part
+                )
+            except GeminiParseError:
+                # Retry once with stricter prompt (still counts within attempts loop).
+                prompt = strict_prompt
+                last_exc = None
+            except ClientError as exc:
+                last_exc = exc
+                if getattr(exc, "status_code", None) == 429:
+                    # Free-tier rate limits / quota exhaustion. If a fallback model is configured,
+                    # try it once before sleeping.
+                    if self._fallback_model_id and self._fallback_model_id != self._model_id:
+                        try:
+                            return self._plan_actions_once(
+                                model_id=self._fallback_model_id,
+                                prompt=prompt,
+                                screenshot_part=screenshot_part,
+                            )
+                        except Exception as fallback_exc:
+                            last_exc = fallback_exc
+                    time.sleep(min(2 ** attempt, 8))
+                    continue
+                raise
+            except ServerError as exc:
+                last_exc = exc
+                # 503 spikes are common; wait a bit and retry.
+                if getattr(exc, "status_code", None) == 503:
+                    # Also attempt fallback model if configured.
+                    if self._fallback_model_id and self._fallback_model_id != self._model_id:
+                        try:
+                            return self._plan_actions_once(
+                                model_id=self._fallback_model_id,
+                                prompt=prompt,
+                                screenshot_part=screenshot_part,
+                            )
+                        except Exception as fallback_exc:
+                            last_exc = fallback_exc
+                    time.sleep(min(2 ** attempt, 8))
+                    continue
+                raise
+
+        if last_exc is not None:
+            raise last_exc
+        raise GeminiParseError("Failed to obtain valid JSON actions from Gemini after retries.")
+
+    def _plan_actions_once(
+        self, *, model_id: str, prompt: str, screenshot_part: types.Part
+    ) -> list[Action]:
         # The SDK supports a `config` object; we request JSON output explicitly.
         response = self._client.models.generate_content(
-            model=self._model_id,
+            model=model_id,
             contents=[prompt, screenshot_part],
             config=types.GenerateContentConfig(response_mime_type="application/json"),
         )
