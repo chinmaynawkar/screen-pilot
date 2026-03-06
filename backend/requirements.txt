@@ -4,4 +4,6 @@ google-genai
 pydantic
 python-dotenv
 playwright
+pytest
+httpx
 
