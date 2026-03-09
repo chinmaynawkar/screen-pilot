@@ -29,6 +29,9 @@ class Settings(BaseModel):
     timesheet_url: str
     gemini_action_model_id: str
     gemini_action_fallback_model_id: Optional[str] = None
+    runs_collection: str = "runs"
+    run_steps_subcollection: str = "runSteps"
+    firestore_database_id: Optional[str] = None  # None = use "(default)" database
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -48,6 +51,9 @@ class Settings(BaseModel):
             gemini_action_fallback_model_id=os.environ.get(
                 "GEMINI_ACTION_FALLBACK_MODEL_ID", "gemini-3-flash-preview"
             ),
+            runs_collection=os.environ.get("RUNS_COLLECTION", "runs"),
+            run_steps_subcollection=os.environ.get("RUN_STEPS_SUBCOLLECTION", "runSteps"),
+            firestore_database_id=os.environ.get("FIRESTORE_DATABASE_ID") or None,
         )
 
 

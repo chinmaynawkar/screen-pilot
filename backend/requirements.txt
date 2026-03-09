@@ -4,6 +4,7 @@ google-genai
 pydantic
 python-dotenv
 playwright
+google-cloud-firestore>=2.16.0
 pytest
 httpx
 
