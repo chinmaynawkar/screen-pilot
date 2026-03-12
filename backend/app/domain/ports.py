@@ -101,6 +101,15 @@ class IScreenshotStore(Protocol):
         """
         ...
 
+    def get_screenshot(self, run_id: str, step_index: int) -> Optional[bytes]:
+        """
+        Return screenshot bytes for the given run and step index, or None if not found.
+
+        Used by the API layer to serve screenshots via the backend (avoids browser CORS
+        issues when clients cannot load signed URLs directly).
+        """
+        ...
+
 
 # ---------------------------------------------------------------------------
 # AgentAdapters dataclass

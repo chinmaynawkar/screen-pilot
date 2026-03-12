@@ -7,7 +7,7 @@ Uses ADC for credentials. See docs/chunk-1-firestore-repo-setup.md.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from google.cloud import firestore
@@ -20,6 +20,7 @@ from backend.app.domain.models import (
     Run,
     RunStatus,
     RunStep,
+    StepSeverity,
 )
 from backend.app.domain.ports import IRunRepository
 
@@ -64,6 +65,7 @@ class FirestoreRunRepository(IRunRepository):
             "status": run.status.value,
             "taskType": run.task_type,
             "parameters": run.parameters,
+            "finalScreenshotUrl": run.final_screenshot_url,
             "createdAt": run.created_at,
             "updatedAt": run.updated_at,
             "stepsCount": len(run.steps),
@@ -84,8 +86,13 @@ class FirestoreRunRepository(IRunRepository):
             parameters=data.get("parameters") or {},
             status=RunStatus(status_val),
             steps=steps,
-            created_at=created if isinstance(created, datetime) else datetime.now(),
-            updated_at=updated if isinstance(updated, datetime) else datetime.now(),
+            final_screenshot_url=data.get("finalScreenshotUrl"),
+            created_at=created
+            if isinstance(created, datetime)
+            else datetime.now(tz=timezone.utc),
+            updated_at=updated
+            if isinstance(updated, datetime)
+            else datetime.now(tz=timezone.utc),
         )
 
     def _step_to_firestore_dict(self, step: RunStep) -> dict[str, Any]:
@@ -107,8 +114,12 @@ class FirestoreRunRepository(IRunRepository):
                 "value": step.action.value,
             },
             "reason": step.reason,
+            "evidence": step.evidence,
             "result": step.result,
+            "severity": step.severity.value,
+            "attempt": step.attempt,
             "screenshotUrl": step.screenshot_url,
+            "createdAt": step.created_at,
         }
 
     def _step_from_firestore_dict(self, data: dict[str, Any]) -> RunStep:
@@ -133,8 +144,14 @@ class FirestoreRunRepository(IRunRepository):
             index=data["index"],
             action=action,
             reason=data.get("reason"),
+            evidence=data.get("evidence"),
             result=data.get("result", ""),
+            severity=StepSeverity(data.get("severity", StepSeverity.INFO.value)),
+            attempt=data.get("attempt"),
             screenshot_url=data.get("screenshotUrl"),
+            created_at=data.get("createdAt")
+            if isinstance(data.get("createdAt"), datetime)
+            else datetime.now(tz=timezone.utc),
         )
 
     def create_run(self, run: Run) -> Run:
@@ -160,11 +177,32 @@ class FirestoreRunRepository(IRunRepository):
 
     def append_step(self, run_id: str, step: RunStep) -> None:
         """
-        Appends or updates a step document in the steps subcollection for a run.
+        Append a step document and keep parent stepsCount in sync.
+
+        Uses a transaction so retries or duplicate writes of the same step index
+        do not over-increment stepsCount.
         """
-        steps_ref = self._steps_ref(run_id)
-        doc_ref = steps_ref.document(str(step.index))
-        doc_ref.set(self._step_to_firestore_dict(step), merge=True)
+        run_ref = self._run_doc_ref(run_id)
+        step_ref = self._steps_ref(run_id).document(str(step.index))
+
+        transaction = self._client.transaction()
+
+        @firestore.transactional
+        def _append_step_txn(tx: firestore.Transaction) -> None:
+            step_snapshot = step_ref.get(transaction=tx)
+            if step_snapshot.exists:
+                return
+            tx.set(step_ref, self._step_to_firestore_dict(step), merge=True)
+            tx.set(
+                run_ref,
+                {
+                    "stepsCount": firestore.Increment(1),
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+
+        _append_step_txn(transaction)
 
     def get_run(self, run_id: str) -> Optional[Run]:
         """

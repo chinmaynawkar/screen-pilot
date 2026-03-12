@@ -27,3 +27,6 @@ build/
 # OS
 .DS_Store
 AGENTS.md
+
+# GCP
+backend/gen-lang-client-0188455373-70b848cfc13c.json

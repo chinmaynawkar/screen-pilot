@@ -31,15 +31,9 @@ class InMemoryRunRepository(IRunRepository):
             return run
 
     def append_step(self, run_id: str, step: RunStep) -> None:
-        # The domain agent loop already appends to run.steps.
-        # This method exists to support repositories that persist steps separately.
-        with self._lock:
-            run = self._runs.get(run_id)
-            if run is None:
-                return
-            if run.steps and run.steps[-1].index == step.index:
-                return
-            run.steps.append(step)
+        # In-memory mode stores the same Run object reference as the domain loop.
+        # The loop appends to run.steps before calling append_step, so no-op here.
+        return None
 
     def get_run(self, run_id: str) -> Optional[Run]:
         with self._lock:

@@ -82,6 +82,16 @@ class RunStatus(str, Enum):
     PARTIAL = "partial"
 
 
+class StepSeverity(str, Enum):
+    """
+    Severity of a run step outcome for UI rendering.
+    """
+
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 class RunStep(BaseModel):
     """
     A single step in an agent run: one planned action and its outcome.
@@ -90,8 +100,14 @@ class RunStep(BaseModel):
     index: int = Field(..., ge=0)
     action: Action
     reason: Optional[str] = Field(default=None, description="Short Gemini reasoning snippet")
+    evidence: Optional[str] = Field(
+        default=None, description="Short visual grounding evidence for the action"
+    )
     result: str = Field(..., description="e.g. success, failed: element not found")
+    severity: StepSeverity = Field(default=StepSeverity.INFO)
+    attempt: Optional[int] = Field(default=None, ge=1)
     screenshot_url: Optional[str] = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
 
 # ---------------------------------------------------------------------------
@@ -107,5 +123,6 @@ class Run(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     status: RunStatus = RunStatus.PENDING
     steps: list[RunStep] = Field(default_factory=list)
+    final_screenshot_url: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))
