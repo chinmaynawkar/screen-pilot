@@ -2,7 +2,13 @@
 GCS-backed screenshot store.
 
 Implements IScreenshotStore by uploading PNG bytes to Cloud Storage and
-returning a signed URL for temporary access.
+returning a stable backend proxy URL for access.
+
+Why:
+- Cloud Run runtime credentials (metadata/ADC) do not include a private key, so
+  V4 signed URL generation is not available by default.
+- The API already exposes `GET /api/run-task/{run_id}/screenshots/{step_index}`
+  which proxies bytes from GCS, avoiding CORS issues in the frontend.
 """
 
 from __future__ import annotations
@@ -51,13 +57,8 @@ class GcsScreenshotStore(IScreenshotStore):
             bucket = self._client.bucket(self._bucket_name)
             blob = bucket.blob(object_name)
             blob.upload_from_string(data, content_type="image/png")
-
-            url = blob.generate_signed_url(
-                version="v4",
-                expiration=datetime.timedelta(seconds=self._signed_url_ttl_seconds),
-                method="GET",
-            )
-            return url
+            # Return a stable API URL that proxies screenshot bytes from GCS.
+            return f"/api/run-task/{run_id}/screenshots/{step_index}"
         except NotFound as exc:
             raise RuntimeError(
                 f"GCS bucket or object not found (bucket={self._bucket_name}, "

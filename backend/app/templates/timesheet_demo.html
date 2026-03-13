@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ScreenPilot Timesheet Demo</title>
+    <style>
+      :root {
+        --bg: #101624;
+        --card: #181f37;
+        --text: #f7fafc;
+        --muted: #b8cae2;
+        --line: #1e2a44;
+        --accent: #53e3c2;
+        --danger: #ed6471;
+        --shadow: 0 6px 32px rgba(34,38,56,0.15);
+        --radius: 18px;
+        --input-bg: #202d4a;
+        --input-focus: #70f5e4;
+        --input-placeholder: #8591ac;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        font-family: 'Inter', ui-sans-serif, system-ui, Segoe UI, sans-serif;
+        background: linear-gradient(135deg, #253055 0%, #142044 100%);
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .wrap {
+        max-width: 420px;
+        width: 100vw;
+        margin: 0 auto;
+        padding: 32px 0;
+      }
+      .header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 28px;
+      }
+      h1 {
+        margin: 0 0 4px 0;
+        font-size: 1.45rem;
+        font-weight: 700;
+        letter-spacing: .3px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 0.97rem;
+        margin-bottom: 2px;
+        letter-spacing: 0.05em;
+      }
+      .badge {
+        font-size: 13px;
+        padding: 6px 16px;
+        border-radius: 24px;
+        font-weight: 600;
+        background: rgba(83,227,194,0.2);
+        color: var(--accent);
+        border: 1.5px solid rgba(83,227,194,0.45);
+        box-shadow: var(--shadow);
+        transition: all 0.2s;
+        user-select: none;
+      }
+      .badge.bad {
+        background: rgba(237,100,113,0.12);
+        color: var(--danger);
+        border-color: rgba(237,100,113,0.28);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        transition: box-shadow 0.2s;
+      }
+      .cardHead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px 10px 22px;
+        border-bottom: 1px solid var(--line);
+      }
+      .status {
+        font-size: 14px;
+        color: var(--muted);
+        letter-spacing: 0.01em;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px 20px;
+        padding: 22px;
+        background: var(--card);
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 7px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+      }
+      input {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 13px;
+        border: 1.5px solid var(--line);
+        background: var(--input-bg);
+        color: var(--text);
+        outline: none;
+        font-size: 1rem;
+        font-family: inherit;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(34,38,56,0.03);
+        transition: border 0.2s, box-shadow 0.2s;
+      }
+      input:focus {
+        border-color: var(--input-focus);
+        box-shadow: 0 0 0 3px rgba(83,227,194,0.12);
+        background: #263055;
+      }
+      input::placeholder {
+        color: var(--input-placeholder);
+        opacity: 0.38;
+      }
+      .footer {
+        display: flex;
+        gap: 14px;
+        padding: 20px 22px 18px 22px;
+        border-top: 1px solid var(--line);
+        align-items: center;
+        justify-content: space-between;
+        background: var(--card);
+      }
+      .footer-actions {
+        display: flex;
+        gap: 12px;
+      }
+      button {
+        border: none;
+        background: var(--input-bg);
+        color: var(--text);
+        padding: 10px 20px;
+        border-radius: 11px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+        transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+        border: 1.2px solid var(--line);
+        box-shadow: 0 2px 10px rgba(34,38,56,0.09);
+      }
+      button.primary {
+        border-color: var(--accent);
+        background: linear-gradient(90deg, #31cfb4 0%, #2ddebd 100%);
+        color: #102524;
+        box-shadow: 0 2px 12px rgba(83,227,194,0.13);
+      }
+      button:disabled {
+        opacity: .45;
+        cursor: not-allowed;
+        background: var(--input-bg);
+        color: var(--muted);
+        border-color: var(--line);
+      }
+      @media (max-width: 560px) {
+        .wrap { max-width: 98vw; }
+        .card, .cardHead, .grid, .footer { padding-left: 6vw !important; padding-right: 6vw !important;}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header">
+        <div>
+          <h1>Timesheet Demo</h1>
+          <div class="hint">Fill hours for each weekday. Submit is disabled until all fields are filled (zero is allowed).</div>
+        </div>
+        <div id="badge" class="badge bad">Not ready</div>
+      </div>
+      <div class="card">
+        <div class="cardHead">
+          <div class="status">Week: <span id="weekLabel">2026‑03‑02</span></div>
+          <button id="clearBtn" title="Reset all fields">Clear</button>
+        </div>
+        <div class="grid">
+          <div>
+            <label for="mon">Monday hours</label>
+            <input id="mon" aria-label="Monday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
+          </div>
+          <div>
+            <label for="tue">Tuesday hours</label>
+            <input id="tue" aria-label="Tuesday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
+          </div>
+          <div>
+            <label for="wed">Wednesday hours</label>
+            <input id="wed" aria-label="Wednesday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
+          </div>
+          <div>
+            <label for="thu">Thursday hours</label>
+            <input id="thu" aria-label="Thursday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
+          </div>
+          <div>
+            <label for="fri">Friday hours</label>
+            <input id="fri" aria-label="Friday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
+          </div>
+        </div>
+        <div class="footer">
+          <div class="status" id="statusText">Waiting for input…</div>
+          <div class="footer-actions">
+            <button id="addBtn" title="Add this entry (demo)">Add Entry</button>
+            <button id="submitBtn" class="primary" disabled>Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const ids = ["mon", "tue", "wed", "thu", "fri"];
+      const inputs = ids.map(id => document.getElementById(id));
+      const submitBtn = document.getElementById("submitBtn");
+      const badge = document.getElementById("badge");
+      const statusText = document.getElementById("statusText");
+      const clearBtn = document.getElementById("clearBtn");
+      const addBtn = document.getElementById("addBtn");
+
+      function allValid() {
+        return inputs.every(i => {
+          const val = i.value.trim();
+          if (val === '') return false;
+          const num = Number(val);
+          return !isNaN(num) && num >= 0 && num <= 24;
+        });
+      }
+
+      function clampInputs() {
+        inputs.forEach(i => {
+          let v = Number(i.value);
+          if (isNaN(v) || i.value.trim() === "") {
+            i.value = "0";
+            return;
+          }
+          if (v < 0) i.value = "0";
+          else if (v > 24) i.value = "24";
+        });
+      }
+
+      function update() {
+        clampInputs();
+        const ok = allValid();
+        submitBtn.disabled = !ok;
+        badge.textContent = ok ? "Ready" : "Not ready";
+        badge.className = ok ? "badge" : "badge bad";
+        statusText.textContent = ok
+          ? "All weekdays filled. Ready to submit."
+          : "Waiting for valid input…";
+      }
+
+      inputs.forEach(i => { i.value = "0"; });
+
+      inputs.forEach(i => {
+        i.addEventListener("input", update);
+        i.addEventListener("blur", clampInputs);
+      });
+
+      clearBtn.addEventListener("click", () => {
+        inputs.forEach(i => (i.value = "0"));
+        update();
+      });
+
+      addBtn.addEventListener("click", () => {
+        statusText.textContent = "Entry added (demo).";
+        setTimeout(update, 1200);
+      });
+
+      submitBtn.addEventListener("click", () => {
+        statusText.textContent = "Submitted (demo).";
+        setTimeout(update, 1500);
+      });
+
+      update();
+    </script>
+  </body>
+</html>

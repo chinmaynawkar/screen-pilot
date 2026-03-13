@@ -65,6 +65,9 @@ class Action(BaseModel):
     action: ActionType
     target: ActionTarget
     value: Optional[str] = Field(default=None, description="Required for type action")
+    press_enter: bool = Field(
+        default=False, description="Whether to press Enter after typing (if supported)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +125,7 @@ class Run(BaseModel):
     task_type: str = Field(..., description="e.g. fill_timesheet")
     parameters: dict[str, Any] = Field(default_factory=dict)
     status: RunStatus = RunStatus.PENDING
+    planner_mode: Optional[str] = Field(default=None)
     steps: list[RunStep] = Field(default_factory=list)
     final_screenshot_url: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=timezone.utc))

@@ -51,6 +51,9 @@ class Settings(BaseModel):
     timesheet_url: str
     gemini_action_model_id: str
     gemini_action_fallback_model_id: Optional[str] = None
+    action_planner_mode: str = "json_schema"
+    gemini_computer_use_model_id: str = "gemini-3-flash-preview"
+    debug_headful: bool = False
     runs_collection: str = "runs"
     run_steps_subcollection: str = "runSteps"
     firestore_database_id: Optional[str] = None  # None = use "(default)" database
@@ -78,6 +81,12 @@ class Settings(BaseModel):
             gemini_action_fallback_model_id=os.environ.get(
                 "GEMINI_ACTION_FALLBACK_MODEL_ID", "gemini-3-flash-preview"
             ),
+            action_planner_mode=os.environ.get("ACTION_PLANNER_MODE", "json_schema"),
+            gemini_computer_use_model_id=os.environ.get(
+                "GEMINI_COMPUTER_USE_MODEL_ID", "gemini-3-flash-preview"
+            ),
+            debug_headful=os.environ.get("DEBUG_HEADFUL", "").strip().lower()
+            in {"1", "true", "yes", "on"},
             runs_collection=os.environ.get("RUNS_COLLECTION", "runs"),
             run_steps_subcollection=os.environ.get("RUN_STEPS_SUBCOLLECTION", "runSteps"),
             firestore_database_id=os.environ.get("FIRESTORE_DATABASE_ID") or None,

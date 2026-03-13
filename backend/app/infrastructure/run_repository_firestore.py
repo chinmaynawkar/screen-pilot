@@ -65,6 +65,7 @@ class FirestoreRunRepository(IRunRepository):
             "status": run.status.value,
             "taskType": run.task_type,
             "parameters": run.parameters,
+            "plannerMode": run.planner_mode,
             "finalScreenshotUrl": run.final_screenshot_url,
             "createdAt": run.created_at,
             "updatedAt": run.updated_at,
@@ -85,6 +86,7 @@ class FirestoreRunRepository(IRunRepository):
             task_type=data.get("taskType", "fill_timesheet"),
             parameters=data.get("parameters") or {},
             status=RunStatus(status_val),
+            planner_mode=data.get("plannerMode"),
             steps=steps,
             final_screenshot_url=data.get("finalScreenshotUrl"),
             created_at=created
@@ -112,6 +114,7 @@ class FirestoreRunRepository(IRunRepository):
                     "y": step.action.target.y,
                 },
                 "value": step.action.value,
+                "pressEnter": step.action.press_enter,
             },
             "reason": step.reason,
             "evidence": step.evidence,
@@ -139,6 +142,7 @@ class FirestoreRunRepository(IRunRepository):
                 y=target_data.get("y"),
             ),
             value=action_data.get("value"),
+            press_enter=bool(action_data.get("pressEnter", False)),
         )
         return RunStep(
             index=data["index"],

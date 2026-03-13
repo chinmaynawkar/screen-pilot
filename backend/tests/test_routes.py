@@ -18,6 +18,24 @@ class FakeGemini:
         ]
 
 
+class FakeGeminiMultiStep:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def plan_actions(self, goal, parameters, screenshot_bytes):
+        self.calls += 1
+        if self.calls == 1:
+            return [
+                Action.model_validate(
+                    {"action": "type", "target": {"type": "field_label", "label": "Monday hours"}, "value": "8"}
+                ),
+                Action.model_validate(
+                    {"action": "type", "target": {"type": "field_label", "label": "Tuesday hours"}, "value": "8"}
+                ),
+            ]
+        return []
+
+
 class FakeBrowser:
     def open_timesheet_page(self) -> None:
         return None
@@ -38,6 +56,7 @@ def test_run_task_start_and_logs(monkeypatch) -> None:
     from backend.app.config import get_settings
 
     monkeypatch.setenv("PERSISTENCE_BACKEND", "in_memory")
+    monkeypatch.setenv("ACTION_PLANNER_MODE", "computer_use")
     get_settings.cache_clear()
     run_repo = InMemoryRunRepository()
     screenshot_store = InMemoryScreenshotStore(public_url_prefix="/api")
@@ -65,6 +84,7 @@ def test_run_task_start_and_logs(monkeypatch) -> None:
     assert logs.status_code == 200
     logs_json = logs.json()
     assert logs_json["id"] == run_id
+    assert logs_json["planner_mode"] == "computer_use"
     assert logs_json["status"] == "partial"
     assert len(logs_json["steps"]) == 1
     assert logs_json["steps"][0]["screenshot_url"] == f"/api/run-task/{run_id}/screenshots/0"
@@ -120,6 +140,54 @@ def test_confirm_final_starts_background_run(monkeypatch) -> None:
     logs = client.get(f"/api/run-task/{run_id}/logs")
     assert logs.status_code == 200
     assert logs.json()["status"] == "succeeded"
+
+    second_confirm = client.post(
+        f"/api/run-task/{run_id}/confirm-final",
+        json={"goal": "Fill weekly timesheet"},
+    )
+    assert second_confirm.status_code == 202
+    assert second_confirm.json()["status"] == "succeeded"
+
+    app.dependency_overrides.clear()
+    get_settings.cache_clear()
+
+
+def test_every_logged_step_screenshot_endpoint_resolves(monkeypatch) -> None:
+    from backend.app.api import routes
+    from backend.app.config import get_settings
+
+    monkeypatch.setenv("PERSISTENCE_BACKEND", "in_memory")
+    get_settings.cache_clear()
+    run_repo = InMemoryRunRepository()
+    screenshot_store = InMemoryScreenshotStore(public_url_prefix="/api")
+    app.dependency_overrides[routes.get_gemini_client] = lambda: FakeGeminiMultiStep()
+    app.dependency_overrides[routes.get_browser_controller] = lambda: FakeBrowser()
+    app.dependency_overrides[routes.get_run_repository] = lambda: run_repo
+    app.dependency_overrides[routes.get_screenshot_store] = lambda: screenshot_store
+
+    client = TestClient(app)
+    resp = client.post(
+        "/api/run-task",
+        json={
+            "task_type": "fill_timesheet",
+            "goal": "Fill weekly timesheet",
+            "parameters": {},
+            "max_iterations": 4,
+            "allow_submit": False,
+        },
+    )
+    assert resp.status_code == 202
+    run_id = resp.json()["run_id"]
+
+    logs = client.get(f"/api/run-task/{run_id}/logs")
+    assert logs.status_code == 200
+    run = logs.json()
+    assert len(run["steps"]) >= 2
+
+    for step in run["steps"]:
+        shot = client.get(f"/api/run-task/{run_id}/screenshots/{step['index']}")
+        assert shot.status_code == 200
+        assert shot.content == b"png"
 
     app.dependency_overrides.clear()
     get_settings.cache_clear()

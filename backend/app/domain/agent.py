@@ -97,7 +97,8 @@ def execute_timesheet_run(
     """
 
     failures = 0
-    step_index = 0
+    # Continue indices when a run is resumed via confirm-final.
+    step_index = len(run.steps)
     last_screenshot_url: Optional[str] = None
 
     try:
@@ -120,12 +121,6 @@ def execute_timesheet_run(
 
         for iteration in range(config.max_iterations):
             screenshot_bytes = adapters.browser.take_screenshot()
-            screenshot_url = adapters.screenshot_store.save_screenshot(
-                run_id=run.id,
-                step_index=step_index,
-                data=screenshot_bytes,
-            )
-            last_screenshot_url = screenshot_url
 
             try:
                 actions = adapters.gemini.plan_actions(
@@ -143,6 +138,12 @@ def execute_timesheet_run(
                 )
 
             if not actions:
+                screenshot_url = adapters.screenshot_store.save_screenshot(
+                    run_id=run.id,
+                    step_index=step_index,
+                    data=screenshot_bytes,
+                )
+                last_screenshot_url = screenshot_url
                 # Persist an explicit terminal observation so screenshot and logs stay aligned.
                 no_action_step = RunStep(
                     index=step_index,
@@ -170,16 +171,22 @@ def execute_timesheet_run(
             submit_action = _find_submit_like_action(actions)
             if submit_action is not None and not config.allow_submit:
                 prefix = _actions_before(actions, submit_action)
-                step_index, failures = _execute_and_record_steps(
+                step_index, failures, last_screenshot_url = _execute_and_record_steps(
                     run=run,
                     adapters=adapters,
                     actions=prefix,
-                    screenshot_url=screenshot_url,
                     start_index=step_index,
                     failures=failures,
                     attempt=iteration + 1,
                 )
 
+                pending_bytes = adapters.browser.take_screenshot()
+                pending_screenshot_url = adapters.screenshot_store.save_screenshot(
+                    run_id=run.id,
+                    step_index=step_index,
+                    data=pending_bytes,
+                )
+                last_screenshot_url = pending_screenshot_url
                 pending_step = RunStep(
                     index=step_index,
                     action=submit_action,
@@ -188,7 +195,7 @@ def execute_timesheet_run(
                     result="pending_confirmation: submit requested",
                     severity=StepSeverity.WARNING,
                     attempt=iteration + 1,
-                    screenshot_url=screenshot_url,
+                    screenshot_url=pending_screenshot_url,
                 )
                 _append_step(run, adapters, pending_step)
                 step_index += 1
@@ -200,11 +207,10 @@ def execute_timesheet_run(
                     final_screenshot_url=last_screenshot_url,
                 )
 
-            step_index, failures = _execute_and_record_steps(
+            step_index, failures, last_screenshot_url = _execute_and_record_steps(
                 run=run,
                 adapters=adapters,
                 actions=actions,
-                screenshot_url=screenshot_url,
                 start_index=step_index,
                 failures=failures,
                 attempt=iteration + 1,
@@ -279,40 +285,50 @@ def _execute_and_record_steps(
     run: Run,
     adapters: AgentAdapters,
     actions: list[Action],
-    screenshot_url: Optional[str],
     start_index: int,
     failures: int,
     attempt: int,
-) -> tuple[int, int]:
+) -> tuple[int, int, Optional[str]]:
     """
     Execute actions and append steps to the run and repository.
 
     Returns: (next_step_index, failures_count).
     """
     if not actions:
-        return start_index, failures
+        return start_index, failures, None
 
-    results = adapters.browser.execute_actions(actions)
     next_index = start_index
-    for action, result in zip(actions, results):
+    last_screenshot_url: Optional[str] = None
+    for action in actions:
+        result = adapters.browser.execute_actions([action])[0]
         if result.startswith("failed"):
             failures += 1
+        post_action_bytes = adapters.browser.take_screenshot()
+        step_screenshot_url = adapters.screenshot_store.save_screenshot(
+            run_id=run.id,
+            step_index=next_index,
+            data=post_action_bytes,
+        )
+        last_screenshot_url = step_screenshot_url
         step = RunStep(
             index=next_index,
             action=action,
-            reason=f"Executing {action.action.value} on the identified UI target.",
+            reason=(
+                f"Executed {action.action.value} on the identified UI target "
+                "and captured post-action state."
+            ),
             evidence=_describe_action_evidence(action),
             result=result,
             severity=_severity_from_result(result),
             attempt=attempt,
-            screenshot_url=screenshot_url,
+            screenshot_url=step_screenshot_url,
         )
         _append_step(run, adapters, step)
         next_index += 1
 
     run.updated_at = _now_utc()
     adapters.run_repository.update_run(run)
-    return next_index, failures
+    return next_index, failures, last_screenshot_url
 
 
 def _append_step(run: Run, adapters: AgentAdapters, step: RunStep) -> None:

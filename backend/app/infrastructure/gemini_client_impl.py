@@ -60,6 +60,9 @@ def _build_actions_prompt(goal: str, parameters: dict[str, Any]) -> str:
         "- Only emit valid JSON, no comments or trailing commas.\n"
         "- Do not include natural language outside the JSON.\n"
         "- Prefer using labels and visible text over coordinates.\n"
+        "- Use visual grounding language like 'button near X', 'field under Y', "
+        "'checkbox to the left of Z' when selecting targets.\n"
+        "- If the target is uncertain, output [] instead of guessing.\n"
         "- Use as few actions as needed to make progress toward the goal.\n"
     )
 

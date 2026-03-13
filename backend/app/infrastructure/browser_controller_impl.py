@@ -137,6 +137,10 @@ class BrowserControllerImpl(IBrowserController):
             str: "ok" if click successful, or error string otherwise.
         """
         target = action.target
+        if target.x is not None and target.y is not None:
+            x, y = self._to_viewport_coordinates(target.x, target.y)
+            self._page.mouse.click(x, y)
+            return "ok"
         if target.text:
             locator = self._page.get_by_text(target.text, exact=False)
         elif target.label:
@@ -159,6 +163,13 @@ class BrowserControllerImpl(IBrowserController):
         if action.value is None:
             return "failed: type action requires value"
         target = action.target
+        if target.x is not None and target.y is not None:
+            x, y = self._to_viewport_coordinates(target.x, target.y)
+            self._page.mouse.click(x, y)
+            self._page.keyboard.type(action.value)
+            if action.press_enter:
+                self._page.keyboard.press("Enter")
+            return "ok"
         if target.label:
             locator = self._page.get_by_label(target.label)
         elif target.placeholder:
@@ -168,6 +179,8 @@ class BrowserControllerImpl(IBrowserController):
         else:
             return "failed: type target needs label, placeholder, or text"
         locator.first.fill(action.value)
+        if action.press_enter:
+            self._page.keyboard.press("Enter")
         return "ok"
 
     def _do_scroll(self, action: Action) -> str:
@@ -182,10 +195,24 @@ class BrowserControllerImpl(IBrowserController):
         """
         target = action.target
         if target.x is not None and target.y is not None:
-            self._page.mouse.wheel(target.x, target.y)
+            delta_y = target.y if target.y != 0 else 300
+            self._page.mouse.wheel(0, delta_y)
         else:
             self._page.evaluate("window.scrollBy(0, 300)")
         return "ok"
+
+    def _to_viewport_coordinates(self, x: int, y: int) -> tuple[int, int]:
+        """
+        Convert normalized (0-1000) Computer Use coordinates to viewport pixels.
+        If coordinates are outside this range, assume they are already pixels.
+        """
+        viewport = self._page.viewport_size or {"width": 1280, "height": 720}
+        width = max(int(viewport.get("width", 1280)), 1)
+        height = max(int(viewport.get("height", 720)), 1)
+
+        if 0 <= x <= 1000 and 0 <= y <= 1000:
+            return int((x / 1000) * width), int((y / 1000) * height)
+        return x, y
 
     def close(self) -> None:
         """

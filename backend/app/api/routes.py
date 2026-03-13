@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import logging
 from typing import Any, List, Literal, Optional
 from uuid import uuid4
 
@@ -18,16 +19,20 @@ from backend.app.domain.ports import (
 )
 from backend.app.genai_client import GeminiClient, GeminiPingResult
 from backend.app.infrastructure.browser_controller_impl import BrowserControllerImpl
+from backend.app.infrastructure.gemini_computer_use_client import GeminiComputerUseClient
 from backend.app.infrastructure.gemini_client_impl import GeminiClientImpl
+from backend.app.infrastructure.gemini_planner_fallback import GeminiPlannerFallbackClient
 from backend.app.infrastructure.in_memory_persistence import (
     InMemoryRunRepository,
     InMemoryScreenshotStore,
 )
 from backend.app.infrastructure.run_repository_firestore import FirestoreRunRepository
 from backend.app.infrastructure.screenshot_store_gcs import GcsScreenshotStore
+from backend.app.templates.loader import get_timesheet_demo_html
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 _run_repo_singleton = InMemoryRunRepository()
 _screenshot_store_singleton = InMemoryScreenshotStore(public_url_prefix="/api")
@@ -56,11 +61,20 @@ def get_screenshot_store() -> IScreenshotStore:
 
 
 def get_gemini_client() -> IGeminiClient:
-    return GeminiClientImpl()
+    settings = get_settings()
+    json_planner = GeminiClientImpl()
+    planner_mode = settings.action_planner_mode.strip().lower()
+    if planner_mode == "computer_use":
+        return GeminiPlannerFallbackClient(
+            primary=GeminiComputerUseClient(),
+            fallback=json_planner,
+        )
+    return json_planner
 
 
 def get_browser_controller() -> IBrowserController:
-    return BrowserControllerImpl(headless=True)
+    settings = get_settings()
+    return BrowserControllerImpl(headless=not settings.debug_headful)
 
 
 class HealthCheck(BaseModel):
@@ -155,302 +169,10 @@ def timesheet_demo() -> str:
     """
     Modern, professional timesheet demo page for local testing.
 
-    All fields start at zero by default and UI is cleaner and more modern.
+    All fields start at zero by default; UI and field styles are kept
+    as in the original template. Served from a separate template file.
     """
-    return """<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ScreenPilot Timesheet Demo</title>
-    <style>
-      :root {
-        --bg: #101624;
-        --card: #181f37;
-        --text: #f7fafc;
-        --muted: #b8cae2;
-        --line: #1e2a44;
-        --accent: #53e3c2;
-        --danger: #ed6471;
-        --shadow: 0 6px 32px rgba(34,38,56,0.15);
-        --radius: 18px;
-        --input-bg: #202d4a;
-        --input-focus: #70f5e4;
-        --input-placeholder: #8591ac;
-      }
-      body {
-        margin: 0;
-        padding: 0;
-        min-height: 100vh;
-        font-family: 'Inter', ui-sans-serif, system-ui, Segoe UI, sans-serif;
-        background: linear-gradient(135deg, #253055 0%, #142044 100%);
-        color: var(--text);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .wrap {
-        max-width: 420px;
-        width: 100vw;
-        margin: 0 auto;
-        padding: 32px 0;
-      }
-      .header {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        margin-bottom: 28px;
-      }
-      h1 {
-        margin: 0 0 4px 0;
-        font-size: 1.45rem;
-        font-weight: 700;
-        letter-spacing: .3px;
-      }
-      .hint {
-        color: var(--muted);
-        font-size: 0.97rem;
-        margin-bottom: 2px;
-        letter-spacing: 0.05em;
-      }
-      .badge {
-        font-size: 13px;
-        padding: 6px 16px;
-        border-radius: 24px;
-        font-weight: 600;
-        background: rgba(83,227,194,0.2);
-        color: var(--accent);
-        border: 1.5px solid rgba(83,227,194,0.45);
-        box-shadow: var(--shadow);
-        transition: all 0.2s;
-        user-select: none;
-      }
-      .badge.bad {
-        background: rgba(237,100,113,0.12);
-        color: var(--danger);
-        border-color: rgba(237,100,113,0.28);
-      }
-      .card {
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        box-shadow: var(--shadow);
-        overflow: hidden;
-        transition: box-shadow 0.2s;
-      }
-      .cardHead {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 22px 10px 22px;
-        border-bottom: 1px solid var(--line);
-      }
-      .status {
-        font-size: 14px;
-        color: var(--muted);
-        letter-spacing: 0.01em;
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 18px 20px;
-        padding: 22px;
-        background: var(--card);
-      }
-      label {
-        display: block;
-        font-size: 13px;
-        color: var(--muted);
-        margin-bottom: 7px;
-        font-weight: 500;
-        letter-spacing: 0.04em;
-      }
-      input {
-        width: 100%;
-        padding: 10px 14px;
-        border-radius: 13px;
-        border: 1.5px solid var(--line);
-        background: var(--input-bg);
-        color: var(--text);
-        outline: none;
-        font-size: 1rem;
-        font-family: inherit;
-        font-weight: 500;
-        box-shadow: 0 2px 8px rgba(34,38,56,0.03);
-        transition: border 0.2s, box-shadow 0.2s;
-      }
-      input:focus {
-        border-color: var(--input-focus);
-        box-shadow: 0 0 0 3px rgba(83,227,194,0.12);
-        background: #263055;
-      }
-      input::placeholder {
-        color: var(--input-placeholder);
-        opacity: 0.38;
-      }
-      .footer {
-        display: flex;
-        gap: 14px;
-        padding: 20px 22px 18px 22px;
-        border-top: 1px solid var(--line);
-        align-items: center;
-        justify-content: space-between;
-        background: var(--card);
-      }
-      .footer-actions {
-        display: flex;
-        gap: 12px;
-      }
-      button {
-        border: none;
-        background: var(--input-bg);
-        color: var(--text);
-        padding: 10px 20px;
-        border-radius: 11px;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        outline: none;
-        transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-        border: 1.2px solid var(--line);
-        box-shadow: 0 2px 10px rgba(34,38,56,0.09);
-      }
-      button.primary {
-        border-color: var(--accent);
-        background: linear-gradient(90deg, #31cfb4 0%, #2ddebd 100%);
-        color: #102524;
-        box-shadow: 0 2px 12px rgba(83,227,194,0.13);
-      }
-      button:disabled {
-        opacity: .45;
-        cursor: not-allowed;
-        background: var(--input-bg);
-        color: var(--muted);
-        border-color: var(--line);
-      }
-      @media (max-width: 560px) {
-        .wrap { max-width: 98vw; }
-        .card, .cardHead, .grid, .footer { padding-left: 6vw !important; padding-right: 6vw !important;}
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="header">
-        <div>
-          <h1>Timesheet Demo</h1>
-          <div class="hint">Fill hours for each weekday. Submit is disabled until all fields are filled (zero is allowed).</div>
-        </div>
-        <div id="badge" class="badge bad">Not ready</div>
-      </div>
-      <div class="card">
-        <div class="cardHead">
-          <div class="status">Week: <span id="weekLabel">2026‑03‑02</span></div>
-          <button id="clearBtn" title="Reset all fields">Clear</button>
-        </div>
-        <div class="grid">
-          <div>
-            <label for="mon">Monday hours</label>
-            <input id="mon" aria-label="Monday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
-          </div>
-          <div>
-            <label for="tue">Tuesday hours</label>
-            <input id="tue" aria-label="Tuesday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
-          </div>
-          <div>
-            <label for="wed">Wednesday hours</label>
-            <input id="wed" aria-label="Wednesday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
-          </div>
-          <div>
-            <label for="thu">Thursday hours</label>
-            <input id="thu" aria-label="Thursday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
-          </div>
-          <div>
-            <label for="fri">Friday hours</label>
-            <input id="fri" aria-label="Friday hours" placeholder="0" inputmode="numeric" value="0" min="0" max="24" type="number" />
-          </div>
-        </div>
-        <div class="footer">
-          <div class="status" id="statusText">Waiting for input…</div>
-          <div class="footer-actions">
-            <button id="addBtn" title="Add this entry (demo)">Add Entry</button>
-            <button id="submitBtn" class="primary" disabled>Submit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <script>
-      // Set up fields and controls
-      const ids = ["mon", "tue", "wed", "thu", "fri"];
-      const inputs = ids.map(id => document.getElementById(id));
-      const submitBtn = document.getElementById("submitBtn");
-      const badge = document.getElementById("badge");
-      const statusText = document.getElementById("statusText");
-      const clearBtn = document.getElementById("clearBtn");
-      const addBtn = document.getElementById("addBtn");
-
-      // Modern floating validation: allow zero, require all non-empty & numeric [0-24]
-      function allValid() {
-        return inputs.every(i => {
-          const val = i.value.trim();
-          if (val === '') return false;
-          const num = Number(val);
-          return !isNaN(num) && num >= 0 && num <= 24;
-        });
-      }
-
-      // Clamp numbers if user enters out of range
-      function clampInputs() {
-        inputs.forEach(i => {
-          let v = Number(i.value);
-          if (isNaN(v) || i.value.trim() === "") {
-            i.value = "0";
-            return;
-          }
-          if (v < 0) i.value = "0";
-          else if (v > 24) i.value = "24";
-        });
-      }
-
-      function update() {
-        clampInputs();
-        const ok = allValid();
-        submitBtn.disabled = !ok;
-        badge.textContent = ok ? "Ready" : "Not ready";
-        badge.className = ok ? "badge" : "badge bad";
-        statusText.textContent = ok
-          ? "All weekdays filled. Ready to submit."
-          : "Waiting for valid input…";
-      }
-
-      // Initial setup: set all fields to zero
-      inputs.forEach(i => { i.value = "0"; });
-
-      // Add event listeners
-      inputs.forEach(i => {
-        i.addEventListener("input", update);
-        i.addEventListener("blur", clampInputs);
-      });
-
-      clearBtn.addEventListener("click", () => { 
-        inputs.forEach(i => (i.value = "0")); 
-        update(); 
-      });
-
-      addBtn.addEventListener("click", () => { 
-        statusText.textContent = "Entry added (demo)."; 
-        setTimeout(update, 1200);
-      });
-
-      submitBtn.addEventListener("click", () => { 
-        statusText.textContent = "Submitted (demo).";
-        setTimeout(update, 1500);
-      });
-
-      update();
-    </script>
-  </body>
-</html>"""
+    return get_timesheet_demo_html()
 
 class RunTaskRequest(BaseModel):
     task_type: str = "fill_timesheet"
@@ -481,15 +203,18 @@ def run_task(
     Uses in-memory persistence for MVP; later will be Firestore/GCS.
     """
     now = datetime.now(tz=timezone.utc)
+    planner_mode = get_settings().action_planner_mode.strip().lower()
     run = Run(
         id=str(uuid4()),
         task_type=body.task_type,
         parameters=body.parameters,
         status=RunStatus.PENDING,
+        planner_mode=planner_mode,
         created_at=now,
         updated_at=now,
     )
     run_repository.create_run(run)
+    logger.info("Selected planner_mode=%s for run_id=%s", planner_mode, run.id)
 
     adapters = AgentAdapters(
         gemini=gemini,
@@ -541,6 +266,17 @@ def confirm_final(
     run = run_repository.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
+    if run.status in {RunStatus.RUNNING, RunStatus.SUCCEEDED}:
+        logger.info(
+            "Ignoring duplicate confirm-final for run_id=%s status=%s",
+            run.id,
+            run.status.value,
+        )
+        return RunTaskStartResponse(run_id=run.id, status=run.status)
+
+    run.status = RunStatus.RUNNING
+    run.updated_at = datetime.now(tz=timezone.utc)
+    run_repository.update_run(run)
 
     adapters = AgentAdapters(
         gemini=gemini,
