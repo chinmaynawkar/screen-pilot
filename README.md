@@ -66,7 +66,7 @@ ScreenPilot is a **browser copilot** that:
 
 See the dedicated architecture document (with the full diagram and explanation):
 
-- [`docs/architecture.md`](docs/architecture.md)
+- [`architecture.md`](/architecture.md)
 
 High‑level flow:
 
